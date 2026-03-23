@@ -1,6 +1,13 @@
 import { z } from "zod";
 import * as tl from "azure-pipelines-task-lib/task";
 import fetch from 'node-fetch';
+import {
+  CustomInstructions,
+  resolveReviewPrompt,
+  resolveContextPrompt,
+  resolveSuggestionsPrompt,
+  resolveFinalizationPrompt,
+} from '../services/custom-instructions-loader';
 
 // Define the state schema for the PR review agent
 export const PRReviewState = z.object({
@@ -84,6 +91,8 @@ export class AdvancedPRReviewAgent {
   private verbose: boolean = true;
   private apiVersion: string;
   private useResponsesApi: boolean;
+  private currentCustomInstructions: CustomInstructions = {};
+  private currentPRContext: { repository: string; prId: string | number; prTitle: string; prDescription: string; sourceBranch: string; targetBranch: string } = { repository: '', prId: '', prTitle: '', prDescription: '', sourceBranch: '', targetBranch: '' };
 
   constructor(
     azureOpenAIEndpoint: string,
@@ -116,8 +125,18 @@ export class AdvancedPRReviewAgent {
     fileName: string,
     prContext: any,
     lineMapping?: Map<number, { originalLine: number; modifiedLine: number; isAdded: boolean; isRemoved: boolean; isContext?: boolean }>,
-    externalContext: string[] = []
+    externalContext: string[] = [],
+    customInstructions?: CustomInstructions
   ): Promise<PRReviewStateType> {
+    this.currentCustomInstructions = customInstructions || {};
+    this.currentPRContext = {
+      repository:    prContext?.repository || '',
+      prId:          prContext?.pr_id || '',
+      prTitle:       prContext?.title || '',
+      prDescription: prContext?.description || '',
+      sourceBranch:  prContext?.source_branch || '',
+      targetBranch:  prContext?.target_branch || '',
+    };
     const initialState: PRReviewStateType = {
       messages: [],
       current_file: fileName,
@@ -746,11 +765,26 @@ export class AdvancedPRReviewAgent {
       }
     );
 
-    const contextPrompt = `You are an expert code reviewer. Analyze the following PR context and determine if a detailed review is needed.
+    const prCtx = state.pr_context;
+    let contextPrompt: string;
 
-PR Title: ${state.pr_context?.title || 'N/A'}
-PR Description: ${state.pr_context?.description || 'N/A'}
-Changed Files: ${state.pr_context?.changed_files?.join(', ') || 'N/A'}
+    if (this.currentCustomInstructions.contextPrompt) {
+      contextPrompt = resolveContextPrompt(this.currentCustomInstructions.contextPrompt, {
+        repository:      this.currentPRContext.repository,
+        prId:            this.currentPRContext.prId,
+        prTitle:         prCtx?.title || '',
+        prDescription:   prCtx?.description || '',
+        sourceBranch:    prCtx?.source_branch || '',
+        targetBranch:    prCtx?.target_branch || '',
+        changedFiles:    prCtx?.changed_files?.join(', ') || '',
+        externalContext: contextExternalContext,
+      });
+    } else {
+      contextPrompt = `You are an expert code reviewer. Analyze the following PR context and determine if a detailed review is needed.
+
+PR Title: ${prCtx?.title || 'N/A'}
+PR Description: ${prCtx?.description || 'N/A'}
+Changed Files: ${prCtx?.changed_files?.join(', ') || 'N/A'}
 ${contextExternalContext}
 
 Determine if this PR requires a detailed code review based on:
@@ -765,6 +799,7 @@ Respond with JSON:
   "reasoning": string,
   "priority": "low" | "medium" | "high"
 }`;
+    }
 
     try {
       const response = await this.callAzureOpenAI(contextPrompt);
@@ -845,7 +880,22 @@ Respond with JSON:
     const expandedContext = this.buildExpandedFileContext(fileLines, diffAnalysis.addedLines);
     const changedLineSummary = this.summarizeLineNumbers(diffAnalysis.addedLines);
 
-    const reviewPrompt = this.buildDiffPrompt({
+    const reviewPrompt = this.currentCustomInstructions.reviewPrompt
+      ? resolveReviewPrompt(this.currentCustomInstructions.reviewPrompt, {
+          repository:      this.currentPRContext.repository,
+          prId:            this.currentPRContext.prId,
+          prTitle:         this.currentPRContext.prTitle,
+          prDescription:   this.currentPRContext.prDescription,
+          sourceBranch:    this.currentPRContext.sourceBranch,
+          targetBranch:    this.currentPRContext.targetBranch,
+          fileName:        state.current_file || '',
+          changedLines:    changedLineSummary,
+          diff:            state.file_diff || '',
+          lineContext:     changedLinesContext || '',
+          expandedContext: expandedContext || '',
+          externalContext: externalContextSection || '',
+        })
+      : this.buildDiffPrompt({
       roleIntroduction: `You are an expert code reviewer. Review the diff below and describe any issues in the modified lines of this pull request. Respond with valid JSON only.`,
       fileName: state.current_file,
       changedLineSummary,
@@ -889,7 +939,7 @@ Respond with JSON:
 4. Focus exclusively on the changed lines in this PR; ignore untouched code.
 5. Be language aware and explain syntax-driven security risks when relevant.
 6. The summary MUST begin with "Detected language: <language guess>."`
-    });
+        });
 
     try {
       const response = await this.callAzureOpenAI(reviewPrompt);
@@ -1648,7 +1698,22 @@ Respond with JSON:
     const expandedContext = this.buildExpandedFileContext(securityFileLines, diffAnalysis.addedLines);
     const changedLineSummary = this.summarizeLineNumbers(diffAnalysis.addedLines);
 
-    const securityPrompt = this.buildDiffPrompt({
+    const securityPrompt = this.currentCustomInstructions.securityPrompt
+      ? resolveReviewPrompt(this.currentCustomInstructions.securityPrompt, {
+          repository:      this.currentPRContext.repository,
+          prId:            this.currentPRContext.prId,
+          prTitle:         this.currentPRContext.prTitle,
+          prDescription:   this.currentPRContext.prDescription,
+          sourceBranch:    this.currentPRContext.sourceBranch,
+          targetBranch:    this.currentPRContext.targetBranch,
+          fileName:        state.current_file || '',
+          changedLines:    changedLineSummary,
+          diff:            state.file_diff || '',
+          lineContext:     changedLinesContext || '',
+          expandedContext: expandedContext || '',
+          externalContext: securityExternalContext || '',
+        })
+      : this.buildDiffPrompt({
       roleIntroduction: `You are a security-focused code reviewer. Examine the diff below and report any vulnerabilities in the modified lines. Respond with valid JSON only.`,
       fileName: state.current_file,
       changedLineSummary,
@@ -1698,7 +1763,7 @@ LANGUAGE AWARENESS:
 4. Focus exclusively on the changed lines in this PR; ignore untouched code.
 5. Be language aware and explain any syntax-driven security risks.
 6. Include a top-level "detected_language" field describing the language you analyzed.`
-    });
+        });
 
     try {
       const response = await this.callAzureOpenAI(securityPrompt);
@@ -1787,9 +1852,23 @@ LANGUAGE AWARENESS:
       return state;
     }
 
-    const suggestionsPrompt = `Based on the following review comments, generate specific code improvement suggestions:
+    const commentsJson = JSON.stringify(state.review_comments, null, 2);
 
-Review Comments: ${JSON.stringify(state.review_comments, null, 2)}
+    let suggestionsPrompt: string;
+    if (this.currentCustomInstructions.suggestionsPrompt) {
+      suggestionsPrompt = resolveSuggestionsPrompt(this.currentCustomInstructions.suggestionsPrompt, {
+        repository:      this.currentPRContext.repository,
+        prId:            this.currentPRContext.prId,
+        prTitle:         this.currentPRContext.prTitle,
+        prDescription:   this.currentPRContext.prDescription,
+        sourceBranch:    this.currentPRContext.sourceBranch,
+        targetBranch:    this.currentPRContext.targetBranch,
+        reviewComments:  commentsJson,
+      });
+    } else {
+      suggestionsPrompt = `Based on the following review comments, generate specific code improvement suggestions:
+
+Review Comments: ${commentsJson}
 
 For each comment that has a suggestion, provide:
 1. The exact code change needed
@@ -1811,6 +1890,7 @@ Format as JSON:
     }
   ]
 }`;
+    }
 
     try {
       const response = await this.callAzureOpenAI(suggestionsPrompt);
@@ -1843,9 +1923,26 @@ Format as JSON:
       return state;
     }
 
-    const finalizationPrompt = `Based on all the review comments and analysis, provide a final summary and recommendation:
+    const reviewCommentsJson = JSON.stringify(state.review_comments, null, 2);
 
-Review Summary: ${JSON.stringify(state.review_comments, null, 2)}
+    let finalizationPrompt: string;
+    if (this.currentCustomInstructions.finalizationPrompt) {
+      finalizationPrompt = resolveFinalizationPrompt(this.currentCustomInstructions.finalizationPrompt, {
+        repository:      this.currentPRContext.repository,
+        prId:            this.currentPRContext.prId,
+        prTitle:         this.currentPRContext.prTitle,
+        prDescription:   this.currentPRContext.prDescription,
+        sourceBranch:    this.currentPRContext.sourceBranch,
+        targetBranch:    this.currentPRContext.targetBranch,
+        reviewComments:  reviewCommentsJson,
+        totalIssues:     String(state.review_comments.length),
+        llmCallsUsed:    String(this.llmCalls),
+        maxLlmCalls:     String(this.maxLLMCalls),
+      });
+    } else {
+      finalizationPrompt = `Based on all the review comments and analysis, provide a final summary and recommendation:
+
+Review Summary: ${reviewCommentsJson}
 Total Issues Found: ${state.review_comments.length}
 LLM Calls Used: ${this.llmCalls}/${this.maxLLMCalls}
 
@@ -1857,6 +1954,7 @@ Provide a final recommendation in JSON format:
   "recommendations": "Specific recommendations for the PR author",
   "confidence": number (0.0-1.0)
 }`;
+    }
 
     try {
       const response = await this.callAzureOpenAI(finalizationPrompt);

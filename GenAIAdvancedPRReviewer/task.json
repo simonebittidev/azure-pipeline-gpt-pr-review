@@ -105,6 +105,14 @@
       "defaultValue": "false",
       "required": false,
       "helpMarkDown": "Select this option to support self-signed certificates"
+    },
+    {
+      "name": "custom_instructions_path",
+      "type": "string",
+      "label": "Custom Instructions Folder",
+      "defaultValue": ".pr-review",
+      "required": false,
+      "helpMarkDown": "Relative path from the repo root to the folder containing custom .md prompt files (role.md, context.md, instructions.md, security-rules.md, suggestions.md, finalization.md). Default: .pr-review. See .pr-review-example/ in the extension repo for ready-to-use templates."
     }
   ],
   "execution": {

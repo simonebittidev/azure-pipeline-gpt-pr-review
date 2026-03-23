@@ -5,6 +5,7 @@ import { AzureDevOpsService, PRDetails } from './azure-devops-service';
 import { getTargetBranchName, getSourceBranchName } from '../utils';
 import { MCPService } from './mcp-service';
 import { MCPServerConfig } from '../types/mcp';
+import { loadCustomInstructions, CustomInstructions } from './custom-instructions-loader';
 
 export interface ReviewResult {
   success: boolean;
@@ -26,6 +27,7 @@ export class ReviewOrchestrator {
   private enableCodeSuggestions: boolean;
   private enableSecurityScanning: boolean;
   private mcpService: MCPService;
+  private rawCustomInstructions: CustomInstructions = {};
   private fileLineMappings: Map<string, Map<number, { originalLine: number; modifiedLine: number; isAdded: boolean; isRemoved: boolean; isContext: boolean }>> = new Map();
   private fallbackGeneralCommentFiles: Set<string> = new Set();
 
@@ -40,7 +42,8 @@ export class ReviewOrchestrator {
     enableSecurityScanning: boolean = true,
     azureOpenAIApiVersion: string = '2024-02-15-preview',
     useResponsesApi: boolean = false,
-    mcpServers: MCPServerConfig[] = []
+    mcpServers: MCPServerConfig[] = [],
+    customInstructionsFolder: string = '.pr-review'
   ) {
     this.httpsAgent = httpsAgent;
     this.azureDevOpsService = new AzureDevOpsService(httpsAgent);
@@ -58,6 +61,10 @@ export class ReviewOrchestrator {
     this.enableCodeSuggestions = enableCodeSuggestions;
     this.enableSecurityScanning = enableSecurityScanning;
     this.mcpService = new MCPService(mcpServers);
+
+    // Load custom instructions from .pr-review/ folder in the repo (once at startup)
+    const sourcesDir = process.env['BUILD_SOURCESDIRECTORY'] || process.cwd();
+    this.rawCustomInstructions = loadCustomInstructions(sourcesDir, customInstructionsFolder);
   }
 
   public async runFullReview(): Promise<ReviewResult> {
@@ -259,7 +266,8 @@ export class ReviewOrchestrator {
           filePath,
           prContext,
           lineMapping, // pass mapping so agent can fall back to it when diff parsing fails
-          externalContext
+          externalContext,
+          this.rawCustomInstructions
         );
 
         reviewResults.push(reviewResult);

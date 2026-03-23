@@ -135,6 +135,68 @@ variables:
 | `azure_openai_api_version` | string | ❌ | 2025-04-01-preview | Azure OpenAI API version (preview required for GPT‑5 deployments) |
 | `azure_openai_use_responses_api` | boolean | ❌ | false | Call the modern Responses API (required for GPT‑4.1 and GPT‑5 deployments) |
 | `mcp_servers` | multi-line string | ❌ | - | JSON array describing MCP servers that enrich each review with additional context |
+| `custom_instructions_path` | string | ❌ | `.pr-review` | Relative path from repo root to the folder containing custom `.md` prompt files |
+
+## 📝 Custom Prompts
+
+You can fully replace any of the LLM prompts by adding `.md` template files to a `.pr-review/` folder in your repository. Each file is the complete prompt sent to the LLM, with `{{placeholder}}` variables injected at runtime. Files are version-controlled alongside your code.
+
+### How it works
+
+The task reads the files at pipeline runtime from `$(Build.SourcesDirectory)/.pr-review/`. Each file **completely replaces** its corresponding default prompt:
+
+| File | Replaces |
+|------|----------|
+| `context-prompt.md` | `analyzeContext` — decides if a detailed review is needed |
+| `review-prompt.md` | `reviewFile` — main code quality review |
+| `security-prompt.md` | `securityScan` — vulnerability scan |
+| `suggestions-prompt.md` | `generateSuggestions` — code improvement suggestions |
+| `finalization-prompt.md` | `finalizeReview` — overall PR assessment |
+
+Files that do not exist are silently ignored — the default hardcoded prompt is used.
+
+### Placeholder variables
+
+| Placeholder | Available in |
+|-------------|-------------|
+| `{{pr_title}}` | all files |
+| `{{pr_description}}` | all files |
+| `{{source_branch}}` | all files |
+| `{{target_branch}}` | all files |
+| `{{repository}}` | all files |
+| `{{pr_id}}` | all files |
+| `{{file_name}}` | `review-prompt.md`, `security-prompt.md` |
+| `{{changed_lines}}` | `review-prompt.md`, `security-prompt.md` |
+| `{{diff}}` | `review-prompt.md`, `security-prompt.md` |
+| `{{line_context}}` | `review-prompt.md`, `security-prompt.md` |
+| `{{expanded_context}}` | `review-prompt.md`, `security-prompt.md` |
+| `{{external_context}}` | `review-prompt.md`, `security-prompt.md`, `context-prompt.md` |
+| `{{changed_files}}` | `context-prompt.md` |
+| `{{review_comments}}` | `suggestions-prompt.md`, `finalization-prompt.md` |
+| `{{total_issues}}` | `finalization-prompt.md` |
+| `{{llm_calls_used}}` | `finalization-prompt.md` |
+| `{{max_llm_calls}}` | `finalization-prompt.md` |
+
+### Quick start
+
+Copy the ready-to-use templates from `.pr-review-example/` and edit them:
+
+```bash
+cp -r .pr-review-example/ path/to/your-repo/.pr-review/
+```
+
+The example files contain the current default prompts as starting point.
+
+### Using a custom folder path
+
+```yaml
+- task: GENAIADVANCEDPRREVIEWER@2
+  inputs:
+    azure_openai_endpoint: '$(azure_openai_endpoint)'
+    azure_openai_api_key: '$(azure_openai_api_key)'
+    azure_openai_deployment_name: 'gpt-4'
+    custom_instructions_path: 'team-config/pr-review'  # default: .pr-review
+```
 
 ## 🔌 MCP Server Integration
 

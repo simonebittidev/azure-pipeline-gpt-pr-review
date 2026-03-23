@@ -25,6 +25,7 @@ async function run() {
     const azureOpenAIApiVersion = tl.getInput('azure_openai_api_version') || '2024-02-15-preview';
     const useResponsesApi = tl.getBoolInput('azure_openai_use_responses_api');
     const mcpServersRaw = tl.getInput('mcp_servers');
+    const customInstructionsFolder = tl.getInput('custom_instructions_path') || '.pr-review';
 
     let mcpServers: MCPServerConfig[] = [];
     if (mcpServersRaw) {
@@ -83,6 +84,7 @@ async function run() {
     console.log(`  - OpenAI API Version: ${azureOpenAIApiVersion}`);
     console.log(`  - Use Responses API: ${useResponsesApi ? 'Yes' : 'No'}`);
     console.log(`  - MCP Servers: ${mcpServers.length}`);
+    console.log(`  - Custom Instructions Folder: ${customInstructionsFolder}`);
     console.log(`  - Self-signed Certificates: ${supportSelfSignedCertificate ? 'Supported' : 'Not Supported'}`);
 
     // Create and run the review orchestrator
@@ -97,7 +99,8 @@ async function run() {
       enableSecurityScanning,
       azureOpenAIApiVersion,
       useResponsesApi,
-      mcpServers
+      mcpServers,
+      customInstructionsFolder
     );
 
     console.log("🔍 Starting comprehensive PR review...");

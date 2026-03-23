@@ -1,0 +1,141 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
+export interface CustomInstructions {
+  contextPrompt?: string;
+  reviewPrompt?: string;
+  securityPrompt?: string;
+  suggestionsPrompt?: string;
+  finalizationPrompt?: string;
+}
+
+export interface PRPlaceholderContext {
+  repository: string;
+  prId: string | number;
+  prTitle: string;
+  prDescription: string;
+  sourceBranch: string;
+  targetBranch: string;
+}
+
+export interface ReviewPlaceholderContext extends PRPlaceholderContext {
+  fileName: string;
+  changedLines: string;
+  diff: string;
+  lineContext: string;
+  expandedContext: string;
+  externalContext: string;
+}
+
+export interface ContextPlaceholderContext extends PRPlaceholderContext {
+  changedFiles: string;
+  externalContext: string;
+}
+
+export interface SuggestionsPlaceholderContext extends PRPlaceholderContext {
+  reviewComments: string;
+}
+
+export interface FinalizationPlaceholderContext extends PRPlaceholderContext {
+  reviewComments: string;
+  totalIssues: string;
+  llmCallsUsed: string;
+  maxLlmCalls: string;
+}
+
+function replace(content: string, vars: Record<string, string>): string {
+  return Object.entries(vars).reduce(
+    (acc, [key, value]) => acc.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value),
+    content
+  );
+}
+
+export function resolveReviewPrompt(template: string, ctx: ReviewPlaceholderContext): string {
+  return replace(template, {
+    repository:       ctx.repository,
+    pr_id:            String(ctx.prId),
+    pr_title:         ctx.prTitle,
+    pr_description:   ctx.prDescription,
+    source_branch:    ctx.sourceBranch,
+    target_branch:    ctx.targetBranch,
+    file_name:        ctx.fileName,
+    changed_lines:    ctx.changedLines,
+    diff:             ctx.diff,
+    line_context:     ctx.lineContext,
+    expanded_context: ctx.expandedContext,
+    external_context: ctx.externalContext,
+  });
+}
+
+export function resolveContextPrompt(template: string, ctx: ContextPlaceholderContext): string {
+  return replace(template, {
+    repository:      ctx.repository,
+    pr_id:           String(ctx.prId),
+    pr_title:        ctx.prTitle,
+    pr_description:  ctx.prDescription,
+    source_branch:   ctx.sourceBranch,
+    target_branch:   ctx.targetBranch,
+    changed_files:   ctx.changedFiles,
+    external_context: ctx.externalContext,
+  });
+}
+
+export function resolveSuggestionsPrompt(template: string, ctx: SuggestionsPlaceholderContext): string {
+  return replace(template, {
+    repository:      ctx.repository,
+    pr_id:           String(ctx.prId),
+    pr_title:        ctx.prTitle,
+    pr_description:  ctx.prDescription,
+    source_branch:   ctx.sourceBranch,
+    target_branch:   ctx.targetBranch,
+    review_comments: ctx.reviewComments,
+  });
+}
+
+export function resolveFinalizationPrompt(template: string, ctx: FinalizationPlaceholderContext): string {
+  return replace(template, {
+    repository:      ctx.repository,
+    pr_id:           String(ctx.prId),
+    pr_title:        ctx.prTitle,
+    pr_description:  ctx.prDescription,
+    source_branch:   ctx.sourceBranch,
+    target_branch:   ctx.targetBranch,
+    review_comments: ctx.reviewComments,
+    total_issues:    ctx.totalIssues,
+    llm_calls_used:  ctx.llmCallsUsed,
+    max_llm_calls:   ctx.maxLlmCalls,
+  });
+}
+
+/**
+ * Reads custom prompt template files from the .pr-review folder.
+ * Called ONCE at startup — returns raw templates (placeholders not yet resolved).
+ */
+export function loadCustomInstructions(sourcesDir: string, folder: string = '.pr-review'): CustomInstructions {
+  const basePath = path.join(sourcesDir, folder);
+  const result: CustomInstructions = {};
+
+  const readFile = (filename: string): string | undefined => {
+    const filePath = path.join(basePath, filename);
+    try {
+      if (fs.existsSync(filePath)) {
+        const content = fs.readFileSync(filePath, 'utf-8').trim();
+        if (content) {
+          console.log(`📄 Loaded custom prompt template: ${path.join(folder, filename)}`);
+          return content;
+        }
+      }
+    } catch {
+      // Silent — missing or unreadable files are ignored
+    }
+    return undefined;
+  };
+
+  result.contextPrompt      = readFile('context-prompt.md');
+  result.reviewPrompt       = readFile('review-prompt.md');
+  result.securityPrompt     = readFile('security-prompt.md');
+  result.suggestionsPrompt  = readFile('suggestions-prompt.md');
+  result.finalizationPrompt = readFile('finalization-prompt.md');
+
+  return result;
+}
