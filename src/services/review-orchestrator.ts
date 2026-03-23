@@ -5,7 +5,7 @@ import { AzureDevOpsService, PRDetails } from './azure-devops-service';
 import { getTargetBranchName, getSourceBranchName } from '../utils';
 import { MCPService } from './mcp-service';
 import { MCPServerConfig } from '../types/mcp';
-import { loadCustomInstructions, CustomInstructions } from './custom-instructions-loader';
+import { loadCustomInstructions, CustomInstructions, resolveSummaryTemplate } from './custom-instructions-loader';
 
 export interface ReviewResult {
   success: boolean;
@@ -138,7 +138,7 @@ export class ReviewOrchestrator {
       const finalSummary = await this.generateFinalSummary(reviewResults, prDetails);
 
       // Step 9: Post results to Azure DevOps
-      await this.postReviewResults(reviewResults, finalSummary);
+      await this.postReviewResults(reviewResults, finalSummary, prDetails);
 
       // Step 10: Return comprehensive result
       return this.createReviewResult(reviewResults, finalSummary);
@@ -342,7 +342,8 @@ export class ReviewOrchestrator {
 
   private async postReviewResults(
     reviewResults: PRReviewStateType[],
-    finalSummary: any
+    finalSummary: any,
+    prDetails: PRDetails
   ): Promise<void> {
     console.log("💬 Posting review results to Azure DevOps...");
     this.fallbackGeneralCommentFiles.clear();
@@ -361,7 +362,7 @@ export class ReviewOrchestrator {
     // Post final summary as a general comment (only if no recent summary exists)
     const hasRecentSummary = this.hasRecentSummaryComment(existingComments);
     if (!hasRecentSummary) {
-      const summaryComment = this.formatSummaryComment(finalSummary);
+      const summaryComment = this.formatSummaryComment(finalSummary, prDetails);
       const autoClose = finalSummary.overall_assessment === 'approve';
       const threadId = await this.azureDevOpsService.addGeneralComment(summaryComment, { autoClose });
       if (autoClose && threadId) {
@@ -650,7 +651,30 @@ export class ReviewOrchestrator {
       .trim();
   }
 
-  private formatSummaryComment(summary: any): string {
+  private formatSummaryComment(summary: any, prDetails: PRDetails): string {
+    if (this.rawCustomInstructions.summaryTemplate) {
+      return resolveSummaryTemplate(this.rawCustomInstructions.summaryTemplate, {
+        repository:          tl.getVariable('Build.Repository.Name') ?? '',
+        prId:                prDetails.id,
+        prTitle:             prDetails.title,
+        prDescription:       prDetails.description ?? '',
+        sourceBranch:        prDetails.sourceRefName,
+        targetBranch:        prDetails.targetRefName,
+        overallAssessment:   summary.overall_assessment,
+        status:              summary.requires_changes ? '❌ Changes Required' : '✅ Ready for Review',
+        totalFilesReviewed:  String(summary.total_files_reviewed),
+        totalIssuesFound:    String(summary.total_issues_found),
+        criticalIssues:      String(summary.critical_issues),
+        securityIssues:      String(summary.security_issues),
+        bugIssues:           String(summary.bug_issues),
+        improvementIssues:   String(summary.improvement_issues),
+        styleIssues:         String(summary.style_issues),
+        testIssues:          String(summary.test_issues),
+        summary:             summary.summary,
+        recommendations:     summary.recommendations,
+      });
+    }
+
     return `## 🔍 PR Review Summary
 
 **Overall Assessment:** ${summary.overall_assessment.toUpperCase()}

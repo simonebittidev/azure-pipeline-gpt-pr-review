@@ -7,6 +7,22 @@ export interface CustomInstructions {
   securityPrompt?: string;
   suggestionsPrompt?: string;
   finalizationPrompt?: string;
+  summaryTemplate?: string;
+}
+
+export interface SummaryPlaceholderContext extends PRPlaceholderContext {
+  overallAssessment: string;
+  status: string;
+  totalFilesReviewed: string;
+  totalIssuesFound: string;
+  criticalIssues: string;
+  securityIssues: string;
+  bugIssues: string;
+  improvementIssues: string;
+  styleIssues: string;
+  testIssues: string;
+  summary: string;
+  recommendations: string;
 }
 
 export interface PRPlaceholderContext {
@@ -107,6 +123,29 @@ export function resolveFinalizationPrompt(template: string, ctx: FinalizationPla
   });
 }
 
+export function resolveSummaryTemplate(template: string, ctx: SummaryPlaceholderContext): string {
+  return replace(template, {
+    repository:           ctx.repository,
+    pr_id:                String(ctx.prId),
+    pr_title:             ctx.prTitle,
+    pr_description:       ctx.prDescription,
+    source_branch:        ctx.sourceBranch,
+    target_branch:        ctx.targetBranch,
+    overall_assessment:   ctx.overallAssessment,
+    status:               ctx.status,
+    total_files_reviewed: ctx.totalFilesReviewed,
+    total_issues_found:   ctx.totalIssuesFound,
+    critical_issues:      ctx.criticalIssues,
+    security_issues:      ctx.securityIssues,
+    bug_issues:           ctx.bugIssues,
+    improvement_issues:   ctx.improvementIssues,
+    style_issues:         ctx.styleIssues,
+    test_issues:          ctx.testIssues,
+    summary:              ctx.summary,
+    recommendations:      ctx.recommendations,
+  });
+}
+
 /**
  * Reads custom prompt template files from the .pr-review folder.
  * Called ONCE at startup — returns raw templates (placeholders not yet resolved).
@@ -136,6 +175,7 @@ export function loadCustomInstructions(sourcesDir: string, folder: string = '.pr
   result.securityPrompt     = readFile('security-prompt.md');
   result.suggestionsPrompt  = readFile('suggestions-prompt.md');
   result.finalizationPrompt = readFile('finalization-prompt.md');
+  result.summaryTemplate    = readFile('summary-template.md');
 
   return result;
 }

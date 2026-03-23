@@ -152,6 +152,7 @@ The task reads the files at pipeline runtime from `$(Build.SourcesDirectory)/.pr
 | `security-prompt.md` | `securityScan` — vulnerability scan |
 | `suggestions-prompt.md` | `generateSuggestions` — code improvement suggestions |
 | `finalization-prompt.md` | `finalizeReview` — overall PR assessment |
+| `summary-template.md` | PR summary comment posted to Azure DevOps |
 
 Files that do not exist are silently ignored — the default hardcoded prompt is used.
 
@@ -176,6 +177,18 @@ Files that do not exist are silently ignored — the default hardcoded prompt is
 | `{{total_issues}}` | `finalization-prompt.md` |
 | `{{llm_calls_used}}` | `finalization-prompt.md` |
 | `{{max_llm_calls}}` | `finalization-prompt.md` |
+| `{{overall_assessment}}` | `summary-template.md` |
+| `{{status}}` | `summary-template.md` |
+| `{{total_files_reviewed}}` | `summary-template.md` |
+| `{{total_issues_found}}` | `summary-template.md` |
+| `{{critical_issues}}` | `summary-template.md` |
+| `{{security_issues}}` | `summary-template.md` |
+| `{{bug_issues}}` | `summary-template.md` |
+| `{{improvement_issues}}` | `summary-template.md` |
+| `{{style_issues}}` | `summary-template.md` |
+| `{{test_issues}}` | `summary-template.md` |
+| `{{summary}}` | `summary-template.md` |
+| `{{recommendations}}` | `summary-template.md` |
 
 ### Quick start
 
