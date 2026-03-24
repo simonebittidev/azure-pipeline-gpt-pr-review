@@ -1824,6 +1824,18 @@ export class AzureDevOpsService {
     });
   }
 
+  public async addFileComment(filePath: string, comment: string): Promise<void> {
+    console.log(`💬 Adding file-level comment to ${filePath}`);
+
+    await this.addComment({
+      content: comment,
+      commentType: 1,
+      threadContext: {
+        filePath
+      }
+    });
+  }
+
   public async addGeneralComment(comment: string, options: { autoClose?: boolean } = {}): Promise<number | null> {
     const thread = await this.addComment({
       content: comment,

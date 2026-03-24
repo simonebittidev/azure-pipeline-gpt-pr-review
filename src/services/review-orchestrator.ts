@@ -379,14 +379,28 @@ export class ReviewOrchestrator {
     
     // Collect inline comments per file so we can coalesce contiguous lines into ranges
     const inlineCommentsByFile: Map<string, any[]> = new Map();
+    const fileLevelCommentsByFile: Map<string, any[]> = new Map();
+    const prLevelComments: any[] = [];
 
     for (const result of reviewResults) {
       for (const comment of result.review_comments) {
-        if (!comment || comment.file === 'PR_CONTEXT') continue;
-        if (!comment.line || typeof comment.line !== 'number' || comment.line <= 0) continue;
+        if (!comment) continue;
+        if (comment.file === 'PR_CONTEXT') {
+          prLevelComments.push(comment);
+          continue;
+        }
 
         const normalizedFilePath = comment.file.startsWith('/') ? comment.file : '/' + comment.file;
         comment.file = normalizedFilePath;
+
+        if (!comment.line || typeof comment.line !== 'number' || comment.line <= 0) {
+          if (this.isDuplicateFileLevelComment(comment, existingComments)) continue;
+          if (!fileLevelCommentsByFile.has(normalizedFilePath)) {
+            fileLevelCommentsByFile.set(normalizedFilePath, []);
+          }
+          fileLevelCommentsByFile.get(normalizedFilePath)!.push(comment);
+          continue;
+        }
 
         const lineMapping = this.fileLineMappings.get(normalizedFilePath);
         if (lineMapping && lineMapping.size > 0) {
@@ -407,6 +421,31 @@ export class ReviewOrchestrator {
           inlineCommentsByFile.set(normalizedFilePath, []);
         }
         inlineCommentsByFile.get(normalizedFilePath)!.push(comment);
+      }
+    }
+
+    if (prLevelComments.length > 0) {
+      const mergedPrComment = `## PR-level suggestions\n\n${prLevelComments.map((c: any) => this.formatComment(c)).join('\n\n---\n\n')}`;
+      if (!this.isDuplicateGeneralComment(mergedPrComment, existingComments)) {
+        await this.azureDevOpsService.addGeneralComment(mergedPrComment);
+        console.log(`✅ Posted PR-level general comment with ${prLevelComments.length} item(s)`);
+      } else {
+        console.log(`📝 PR-level general comment already exists, skipping duplicate`);
+      }
+    }
+
+    // Post file-level comments (no specific line anchor).
+    for (const [filePath, comments] of fileLevelCommentsByFile.entries()) {
+      try {
+        const mergedText = comments.map((c: any) => this.formatComment(c)).join('\n\n---\n\n');
+        console.log(`💬 Posting file-level comment for ${filePath}`);
+        await this.azureDevOpsService.addFileComment(filePath, mergedText);
+        console.log(`✅ Posted file-level comment for ${filePath}`);
+      } catch (error: any) {
+        console.error(`❌ Error posting file-level comment for ${filePath}:`, error.message);
+        const fallbackComment = `**File: ${filePath}**\n\n${comments.map((c: any) => this.formatComment(c)).join('\n\n')}`;
+        await this.azureDevOpsService.addGeneralComment(fallbackComment);
+        console.log(`✅ Posted fallback general comment for ${filePath}`);
       }
     }
 
@@ -549,6 +588,58 @@ export class ReviewOrchestrator {
       }
 
       return existingSet.some(existingContent => existingContent.includes(normalizedNewContent));
+    });
+  }
+
+  private isDuplicateFileLevelComment(newComment: any, existingComments: any[]): boolean {
+    if (!newComment?.file || (typeof newComment.line === 'number' && newComment.line > 0)) return false;
+
+    const normalizedNewFile = newComment.file.startsWith('/') ? newComment.file : '/' + newComment.file;
+    const normalizedNewContent = this.normalizeCommentContent(this.formatComment(newComment));
+    if (!normalizedNewContent) return false;
+
+    return existingComments.some(existingComment => {
+      if (!existingComment?.content) return false;
+
+      const existingPath = existingComment.threadContext?.filePath;
+      if (!existingPath) return false;
+
+      const normalizedExistingFile = existingPath.startsWith('/') ? existingPath : '/' + existingPath;
+      if (normalizedExistingFile !== normalizedNewFile) return false;
+
+      const hasInlineAnchor = !!(
+        existingComment.threadContext?.rightFileStart?.line ||
+        existingComment.threadContext?.rightFileEnd?.line ||
+        existingComment.threadContext?.leftFileStart?.line ||
+        existingComment.threadContext?.leftFileEnd?.line
+      );
+      if (hasInlineAnchor) return false;
+
+      const isFromBuildService = existingComment.author?.uniqueName?.toLowerCase()?.includes('build') ||
+                                 existingComment.author?.displayName?.toLowerCase()?.includes('build service');
+      if (!isFromBuildService) return false;
+
+      const normalizedExistingContent = this.normalizeCommentContent(existingComment.content || '');
+      return normalizedExistingContent === normalizedNewContent;
+    });
+  }
+
+  private isDuplicateGeneralComment(newContent: string, existingComments: any[]): boolean {
+    const normalizedNew = this.normalizeCommentContent(newContent);
+    if (!normalizedNew) return false;
+
+    return existingComments.some(existingComment => {
+      if (!existingComment?.content) return false;
+
+      const isFromBuildService = existingComment.author?.uniqueName?.toLowerCase()?.includes('build') ||
+                                 existingComment.author?.displayName?.toLowerCase()?.includes('build service');
+      if (!isFromBuildService) return false;
+
+      const existingPath = existingComment.threadContext?.filePath;
+      if (existingPath) return false; // file-level/inline comment, not PR-level
+
+      const normalizedExisting = this.normalizeCommentContent(existingComment.content || '');
+      return normalizedExisting === normalizedNew;
     });
   }
 
