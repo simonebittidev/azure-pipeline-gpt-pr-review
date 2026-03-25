@@ -170,12 +170,15 @@ export function loadCustomInstructions(sourcesDir: string, folder: string = '.pr
     return undefined;
   };
 
-  result.contextPrompt      = readFile('context-prompt.md');
-  result.reviewPrompt       = readFile('review-prompt.md');
-  result.securityPrompt     = readFile('security-prompt.md');
-  result.suggestionsPrompt  = readFile('suggestions-prompt.md');
-  result.finalizationPrompt = readFile('finalization-prompt.md');
-  result.summaryTemplate    = readFile('summary-template.md');
+  const readPrompt   = (filename: string) => readFile(path.join('prompts', filename));
+  const readTemplate = (filename: string) => readFile(path.join('templates', filename));
+
+  result.contextPrompt      = readPrompt('context-prompt.md');
+  result.reviewPrompt       = readPrompt('review-prompt.md');
+  result.securityPrompt     = readPrompt('security-prompt.md');
+  result.suggestionsPrompt  = readPrompt('suggestions-prompt.md');
+  result.finalizationPrompt = readPrompt('finalization-prompt.md');
+  result.summaryTemplate    = readTemplate('summary-template.md');
 
   return result;
 }
