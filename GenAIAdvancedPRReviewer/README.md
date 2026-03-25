@@ -143,53 +143,69 @@ You can fully replace any of the LLM prompts and output templates by adding `.md
 
 ### Folder structure
 
-The `.pr-review/` folder is split into two subfolders:
+The `.pr-review/` folder is organised into three subfolders:
 
 ```
 .pr-review/
-├── prompts/       # LLM prompts — sent to the AI model at each review stage
+├── prompts/       # Full prompt replacement — completely overrides the built-in prompt
 │   ├── context-prompt.md
 │   ├── review-prompt.md
 │   ├── security-prompt.md
 │   ├── suggestions-prompt.md
 │   └── finalization-prompt.md
+├── rules/         # Partial injection — merged into the prompt without replacing it
+│   ├── context-rules.md
+│   ├── review-rules.md
+│   ├── security-rules.md
+│   ├── suggestions-rules.md
+│   └── finalization-rules.md
 └── templates/     # Output templates — control how results are formatted
     └── summary-template.md
 ```
 
-Files that do not exist are silently ignored — the built-in default is used instead.
+All files are optional and silently ignored if absent — the built-in default is always used as fallback.
 
-### prompts/
+### prompts/ — full replacement
+
+Each file completely replaces the corresponding built-in prompt. Use this when you need full control over the structure, tone, and instructions sent to the model.
 
 | File | Stage | Description |
 |------|-------|-------------|
-| `context-prompt.md` | Context analysis | Decides if a detailed review is needed and enforces project-level business rules |
+| `context-prompt.md` | Context analysis | Decides if a detailed review is needed |
 | `review-prompt.md` | File review | Main code quality review — runs once per changed file |
-| `security-prompt.md` | Security scan | Vulnerability scan — runs once per changed file when security scanning is enabled |
+| `security-prompt.md` | Security scan | Vulnerability scan — runs once per changed file when enabled |
 | `suggestions-prompt.md` | Suggestions | Expands review comments into before/after code examples |
 | `finalization-prompt.md` | Final assessment | Produces the overall PR approval recommendation |
 
-### templates/
+The placeholder `{{custom_rules}}` is available in all prompt files and is resolved to the content of the matching `rules/` file (if present). If you omit the placeholder from your custom prompt, rules are appended automatically at the end.
 
-| File | Description |
-|------|-------------|
-| `summary-template.md` | Markdown layout of the PR summary comment posted to Azure DevOps |
+### rules/ — partial injection
 
-### Adding project-specific business rules
+Each file injects additional instructions into the corresponding stage **without replacing the built-in prompt**. Use this when you only need to add project-specific business rules and don't want to maintain a full custom prompt.
 
-`context-prompt.md` includes a dedicated **Project Rules** section where you can define project-level policies in plain language. The LLM evaluates them against each PR automatically — no changes to the JSON schema are needed.
+| File | Injected into |
+|------|--------------|
+| `context-rules.md` | Context analysis |
+| `review-rules.md` | File review |
+| `security-rules.md` | Security scan |
+| `suggestions-rules.md` | Suggestions |
+| `finalization-rules.md` | Final assessment |
 
-Rules that target a specific file (e.g. a mandatory changelog or architecture decision record) are returned as `file_suggestions`, which the reviewer posts as **file-level comments** directly on that file. Generic rules (e.g. coding standards, PR description quality) are reflected in the review reasoning.
+Rules are written in plain language — no JSON schema knowledge required. Example (`context-rules.md`):
 
 ```markdown
-## Project Rules
-
 - CHANGELOG.md must be updated in every PR.
 - Every new feature must include unit tests.
 - Breaking changes must be documented in docs/breaking-changes.md.
 ```
 
-The `file_path` in each `file_suggestion` is chosen dynamically by the LLM — nothing is hardcoded.
+Rules that require changes to a specific file are returned by the LLM as `file_suggestions` and posted as **file-level comments** directly on that file. The `file_path` is chosen dynamically — nothing is hardcoded.
+
+### templates/ — output formatting
+
+| File | Description |
+|------|-------------|
+| `summary-template.md` | Markdown layout of the PR summary comment posted to Azure DevOps |
 
 ### Placeholder variables
 
@@ -207,6 +223,7 @@ The `file_path` in each `file_suggestion` is chosen dynamically by the LLM — n
 | `{{line_context}}` | `review-prompt.md`, `security-prompt.md` |
 | `{{expanded_context}}` | `review-prompt.md`, `security-prompt.md` |
 | `{{external_context}}` | `review-prompt.md`, `security-prompt.md`, `context-prompt.md` |
+| `{{custom_rules}}` | all `prompts/` files |
 | `{{changed_files}}` | `context-prompt.md` |
 | `{{review_comments}}` | `suggestions-prompt.md`, `finalization-prompt.md` |
 | `{{total_issues}}` | `finalization-prompt.md` |

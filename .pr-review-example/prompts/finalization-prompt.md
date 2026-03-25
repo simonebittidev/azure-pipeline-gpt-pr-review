@@ -4,6 +4,8 @@ Review Summary: {{review_comments}}
 Total Issues Found: {{total_issues}}
 LLM Calls Used: {{llm_calls_used}}/{{max_llm_calls}}
 
+{{custom_rules}}
+
 Provide a final recommendation in JSON format:
 {
   "overall_assessment": "approve" | "approve_with_suggestions" | "request_changes",

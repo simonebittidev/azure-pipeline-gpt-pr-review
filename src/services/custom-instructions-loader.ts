@@ -8,6 +8,12 @@ export interface CustomInstructions {
   suggestionsPrompt?: string;
   finalizationPrompt?: string;
   summaryTemplate?: string;
+  // Injectable rules — merged into each prompt without replacing it
+  contextRules?: string;
+  reviewRules?: string;
+  securityRules?: string;
+  suggestionsRules?: string;
+  finalizationRules?: string;
 }
 
 export interface SummaryPlaceholderContext extends PRPlaceholderContext {
@@ -41,15 +47,18 @@ export interface ReviewPlaceholderContext extends PRPlaceholderContext {
   lineContext: string;
   expandedContext: string;
   externalContext: string;
+  customRules?: string;
 }
 
 export interface ContextPlaceholderContext extends PRPlaceholderContext {
   changedFiles: string;
   externalContext: string;
+  customRules?: string;
 }
 
 export interface SuggestionsPlaceholderContext extends PRPlaceholderContext {
   reviewComments: string;
+  customRules?: string;
 }
 
 export interface FinalizationPlaceholderContext extends PRPlaceholderContext {
@@ -57,6 +66,7 @@ export interface FinalizationPlaceholderContext extends PRPlaceholderContext {
   totalIssues: string;
   llmCallsUsed: string;
   maxLlmCalls: string;
+  customRules?: string;
 }
 
 function replace(content: string, vars: Record<string, string>): string {
@@ -80,19 +90,21 @@ export function resolveReviewPrompt(template: string, ctx: ReviewPlaceholderCont
     line_context:     ctx.lineContext,
     expanded_context: ctx.expandedContext,
     external_context: ctx.externalContext,
+    custom_rules:     ctx.customRules ?? '',
   });
 }
 
 export function resolveContextPrompt(template: string, ctx: ContextPlaceholderContext): string {
   return replace(template, {
-    repository:      ctx.repository,
-    pr_id:           String(ctx.prId),
-    pr_title:        ctx.prTitle,
-    pr_description:  ctx.prDescription,
-    source_branch:   ctx.sourceBranch,
-    target_branch:   ctx.targetBranch,
-    changed_files:   ctx.changedFiles,
+    repository:       ctx.repository,
+    pr_id:            String(ctx.prId),
+    pr_title:         ctx.prTitle,
+    pr_description:   ctx.prDescription,
+    source_branch:    ctx.sourceBranch,
+    target_branch:    ctx.targetBranch,
+    changed_files:    ctx.changedFiles,
     external_context: ctx.externalContext,
+    custom_rules:     ctx.customRules ?? '',
   });
 }
 
@@ -105,6 +117,7 @@ export function resolveSuggestionsPrompt(template: string, ctx: SuggestionsPlace
     source_branch:   ctx.sourceBranch,
     target_branch:   ctx.targetBranch,
     review_comments: ctx.reviewComments,
+    custom_rules:    ctx.customRules ?? '',
   });
 }
 
@@ -120,6 +133,7 @@ export function resolveFinalizationPrompt(template: string, ctx: FinalizationPla
     total_issues:    ctx.totalIssues,
     llm_calls_used:  ctx.llmCallsUsed,
     max_llm_calls:   ctx.maxLlmCalls,
+    custom_rules:    ctx.customRules ?? '',
   });
 }
 
@@ -172,6 +186,7 @@ export function loadCustomInstructions(sourcesDir: string, folder: string = '.pr
 
   const readPrompt   = (filename: string) => readFile(path.join('prompts', filename));
   const readTemplate = (filename: string) => readFile(path.join('templates', filename));
+  const readRule     = (filename: string) => readFile(path.join('rules', filename));
 
   result.contextPrompt      = readPrompt('context-prompt.md');
   result.reviewPrompt       = readPrompt('review-prompt.md');
@@ -179,6 +194,12 @@ export function loadCustomInstructions(sourcesDir: string, folder: string = '.pr
   result.suggestionsPrompt  = readPrompt('suggestions-prompt.md');
   result.finalizationPrompt = readPrompt('finalization-prompt.md');
   result.summaryTemplate    = readTemplate('summary-template.md');
+
+  result.contextRules      = readRule('context-rules.md');
+  result.reviewRules       = readRule('review-rules.md');
+  result.securityRules     = readRule('security-rules.md');
+  result.suggestionsRules  = readRule('suggestions-rules.md');
+  result.finalizationRules = readRule('finalization-rules.md');
 
   return result;
 }

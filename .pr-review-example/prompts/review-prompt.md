@@ -12,6 +12,8 @@ Unified diff ("-" = before, "+" = after):
 
 {{external_context}}
 
+{{custom_rules}}
+
 REVIEW INSTRUCTIONS:
 1. Inspect only the lines that begin with "+" in the diff/context—those are the new or updated lines.
 2. Use the provided new file line numbers when setting each issue.line_number.
