@@ -797,8 +797,18 @@ Respond with JSON:
 {
   "requires_review": boolean,
   "reasoning": string,
-  "priority": "low" | "medium" | "high"
-}`;
+  "priority": "low" | "medium" | "high",
+  "file_suggestions": [
+    {
+      "file_path": "path/to/file",
+      "type": "improvement",
+      "description": "What needs to be done in this file",
+      "suggestion": "Specific action to take",
+      "confidence": 0.9
+    }
+  ]
+}
+Note: file_suggestions is optional. Use it to flag files that need attention regardless of requires_review.`;
     }
 
     try {
@@ -806,15 +816,38 @@ Respond with JSON:
       const analysis = this.safeJsonParse(response, {
         requires_review: true,
         reasoning: "Default review required",
-        priority: "medium"
+        priority: "medium",
+        file_suggestions: []
       });
-      
+
       if (!analysis.requires_review) {
         state.review_comments.push({
           file: "PR_CONTEXT",
           comment: `No detailed review needed: ${analysis.reasoning}`,
           type: "improvement",
           confidence: 0.9
+        });
+      }
+
+      if (analysis.file_suggestions && Array.isArray(analysis.file_suggestions)) {
+        analysis.file_suggestions.forEach((suggestion: any) => {
+          const confidence = suggestion?.confidence ?? 0.9;
+          const fileTarget = typeof suggestion?.file_path === 'string' && suggestion.file_path.trim()
+            ? suggestion.file_path.trim()
+            : 'PR_CONTEXT';
+          const type = ['bug', 'improvement', 'security', 'style', 'test'].includes(String(suggestion?.type))
+            ? suggestion.type
+            : 'improvement';
+          const description = suggestion?.description ? String(suggestion.description) : 'File-level suggestion from context analysis.';
+
+          state.review_comments.push({
+            file: fileTarget,
+            comment: `FILE SUGGESTION: ${description}`,
+            type,
+            confidence,
+            suggestion: suggestion?.suggestion ? String(suggestion.suggestion) : undefined,
+            is_new_issue: true
+          });
         });
       }
 
@@ -933,7 +966,7 @@ Respond with JSON:
   ],
   "file_suggestions": [
     {
-      "file_path": "docs/CHANGELOG.md",
+      "file_path": "path/to/relevant-file",
       "type": "improvement",
       "description": "File-level recommendation when no changed-line anchor is available",
       "suggestion": "Suggested action for that file",
