@@ -29,5 +29,6 @@ Respond with JSON:
   ]
 }
 
-Use file_suggestions only when a rule violation targets a specific file that needs to be created or updated.
-Leave file_suggestions as an empty array if no file-specific action is required.
+NOTE:
+- Use `file_suggestions` only to reference files that are **not already present** in `changed_files`.
+- Leave `file_suggestions` as an empty array if no additional files need to be created or updated.

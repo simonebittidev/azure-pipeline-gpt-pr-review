@@ -815,7 +815,9 @@ Respond with JSON:
     }
   ]
 }
-Note: file_suggestions is optional. Use it to flag files that need attention regardless of requires_review.`;
+NOTE:
+- Use file_suggestions only to reference files that are **not already present** in changed_files.
+- Leave file_suggestions as an empty array if no additional files need to be created or updated.`;
     }
 
     try {
