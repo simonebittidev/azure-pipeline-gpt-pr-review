@@ -104,7 +104,7 @@ export class AdvancedPRReviewAgent {
     reviewThreshold: number = 0.7,
     apiVersion: string = '2024-02-15-preview',
     useResponsesApi: boolean = false,
-    enableFileSuggestions: boolean = true
+    enableFileSuggestions: boolean = false
   ) {
     this.azureOpenAIEndpoint = azureOpenAIEndpoint;
     this.azureOpenAIKey = azureOpenAIKey;
