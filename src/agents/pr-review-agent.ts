@@ -88,6 +88,7 @@ export class AdvancedPRReviewAgent {
   private deploymentName: string;
   private maxLLMCalls: number;
   private reviewThreshold: number;
+  private enableFileSuggestions: boolean;
   private llmCalls: number = 0;
   private verbose: boolean = true;
   private apiVersion: string;
@@ -102,13 +103,15 @@ export class AdvancedPRReviewAgent {
     maxLLMCalls: number = 100,
     reviewThreshold: number = 0.7,
     apiVersion: string = '2024-02-15-preview',
-    useResponsesApi: boolean = false
+    useResponsesApi: boolean = false,
+    enableFileSuggestions: boolean = true
   ) {
     this.azureOpenAIEndpoint = azureOpenAIEndpoint;
     this.azureOpenAIKey = azureOpenAIKey;
     this.deploymentName = deploymentName;
     this.maxLLMCalls = maxLLMCalls;
     this.reviewThreshold = reviewThreshold;
+    this.enableFileSuggestions = enableFileSuggestions;
     this.apiVersion = apiVersion;
     this.useResponsesApi = useResponsesApi;
     // Verbose logging: default enabled unless explicitly disabled by ADVPR_VERBOSE=0
@@ -833,7 +836,7 @@ Note: file_suggestions is optional. Use it to flag files that need attention reg
         });
       }
 
-      if (analysis.file_suggestions && Array.isArray(analysis.file_suggestions)) {
+      if (this.enableFileSuggestions && analysis.file_suggestions && Array.isArray(analysis.file_suggestions)) {
         analysis.file_suggestions.forEach((suggestion: any) => {
           const confidence = suggestion?.confidence ?? 0.9;
           const fileTarget = typeof suggestion?.file_path === 'string' && suggestion.file_path.trim()
@@ -1095,7 +1098,7 @@ Note: file_suggestions is optional. Use it to flag files that need attention reg
         });
       }
 
-      if (review.file_suggestions && Array.isArray(review.file_suggestions)) {
+      if (this.enableFileSuggestions && review.file_suggestions && Array.isArray(review.file_suggestions)) {
         review.file_suggestions.forEach((suggestion: any) => {
           const confidence = suggestion?.confidence ?? this.reviewThreshold;
           if (confidence < this.reviewThreshold) return;

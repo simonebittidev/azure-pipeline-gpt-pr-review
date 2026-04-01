@@ -21,6 +21,7 @@ async function run() {
     const reviewThreshold = parseFloat(tl.getInput('review_threshold') || '0.7');
     const enableCodeSuggestions = tl.getBoolInput('enable_code_suggestions');
     const enableSecurityScanning = tl.getBoolInput('enable_security_scanning');
+    const enableFileSuggestions = tl.getBoolInput('enable_file_suggestions');
     const supportSelfSignedCertificate = tl.getBoolInput('support_self_signed_certificate');
     const azureOpenAIApiVersion = tl.getInput('azure_openai_api_version') || '2024-02-15-preview';
     const useResponsesApi = tl.getBoolInput('azure_openai_use_responses_api');
@@ -81,6 +82,7 @@ async function run() {
     console.log(`  - Review Threshold: ${reviewThreshold}`);
     console.log(`  - Code Suggestions: ${enableCodeSuggestions ? 'Enabled' : 'Disabled'}`);
     console.log(`  - Security Scanning: ${enableSecurityScanning ? 'Enabled' : 'Disabled'}`);
+    console.log(`  - File Suggestions: ${enableFileSuggestions ? 'Enabled' : 'Disabled'}`);
     console.log(`  - OpenAI API Version: ${azureOpenAIApiVersion}`);
     console.log(`  - Use Responses API: ${useResponsesApi ? 'Yes' : 'No'}`);
     console.log(`  - MCP Servers: ${mcpServers.length}`);
@@ -100,7 +102,8 @@ async function run() {
       azureOpenAIApiVersion,
       useResponsesApi,
       mcpServers,
-      customInstructionsFolder
+      customInstructionsFolder,
+      enableFileSuggestions
     );
 
     console.log("🔍 Starting comprehensive PR review...");
