@@ -102,7 +102,7 @@
       "name": "enable_file_suggestions",
       "type": "boolean",
       "label": "Enable File Suggestions",
-      "defaultValue": "true",
+      "defaultValue": "false",
       "required": false,
       "helpMarkDown": "Enable file-level review comments. When disabled, suggestions without an inline line anchor are not posted as file-level comments."
     },
