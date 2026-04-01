@@ -45,7 +45,7 @@ export class ReviewOrchestrator {
     useResponsesApi: boolean = false,
     mcpServers: MCPServerConfig[] = [],
     customInstructionsFolder: string = '.pr-review',
-    enableFileSuggestions: boolean = true
+    enableFileSuggestions: boolean = false
   ) {
     this.httpsAgent = httpsAgent;
     this.azureDevOpsService = new AzureDevOpsService(httpsAgent);
