@@ -26,6 +26,7 @@ export class ReviewOrchestrator {
   private reviewThreshold: number;
   private enableCodeSuggestions: boolean;
   private enableSecurityScanning: boolean;
+  private enableFileSuggestions: boolean;
   private mcpService: MCPService;
   private rawCustomInstructions: CustomInstructions = {};
   private fileLineMappings: Map<string, Map<number, { originalLine: number; modifiedLine: number; isAdded: boolean; isRemoved: boolean; isContext: boolean }>> = new Map();
@@ -43,7 +44,8 @@ export class ReviewOrchestrator {
     azureOpenAIApiVersion: string = '2024-02-15-preview',
     useResponsesApi: boolean = false,
     mcpServers: MCPServerConfig[] = [],
-    customInstructionsFolder: string = '.pr-review'
+    customInstructionsFolder: string = '.pr-review',
+    enableFileSuggestions: boolean = false
   ) {
     this.httpsAgent = httpsAgent;
     this.azureDevOpsService = new AzureDevOpsService(httpsAgent);
@@ -54,12 +56,14 @@ export class ReviewOrchestrator {
       maxLLMCalls,
       reviewThreshold,
       azureOpenAIApiVersion,
-      useResponsesApi
+      useResponsesApi,
+      enableFileSuggestions
     );
     this.maxLLMCalls = maxLLMCalls;
     this.reviewThreshold = reviewThreshold;
     this.enableCodeSuggestions = enableCodeSuggestions;
     this.enableSecurityScanning = enableSecurityScanning;
+    this.enableFileSuggestions = enableFileSuggestions;
     this.mcpService = new MCPService(mcpServers);
 
     // Load custom instructions from .pr-review/ folder in the repo (once at startup)
