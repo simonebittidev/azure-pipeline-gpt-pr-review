@@ -58,6 +58,7 @@ type DiffPromptOptions = {
   changedLinesContext?: string;
   expandedContext?: string;
   externalContextSection?: string;
+  customRules?: string;
   instructionsSection: string;
   jsonResponseReminder: string;
   responseSchema: string;
@@ -778,6 +779,7 @@ export class AdvancedPRReviewAgent {
         targetBranch:    prCtx?.target_branch || '',
         changedFiles:    prCtx?.changed_files?.join(', ') || '',
         externalContext: contextExternalContext,
+        customRules:     this.currentCustomInstructions.contextRules,
       });
     } else {
       contextPrompt = `You are an expert code reviewer. Analyze the following PR context and determine if a detailed review is needed.
@@ -793,12 +795,24 @@ Determine if this PR requires a detailed code review based on:
 3. Impact on the codebase
 4. Quality of the PR description
 
+${this.currentCustomInstructions.contextRules ?? ''}
+
 Respond with JSON:
 {
   "requires_review": boolean,
   "reasoning": string,
-  "priority": "low" | "medium" | "high"
-}`;
+  "priority": "low" | "medium" | "high",
+  "file_suggestions": [
+    {
+      "file_path": "path/to/file",
+      "type": "improvement",
+      "description": "What needs to be done in this file",
+      "suggestion": "Specific action to take",
+      "confidence": 0.9
+    }
+  ]
+}
+Note: file_suggestions is optional. Use it to flag files that need attention regardless of requires_review.`;
     }
 
     try {
@@ -806,15 +820,38 @@ Respond with JSON:
       const analysis = this.safeJsonParse(response, {
         requires_review: true,
         reasoning: "Default review required",
-        priority: "medium"
+        priority: "medium",
+        file_suggestions: []
       });
-      
+
       if (!analysis.requires_review) {
         state.review_comments.push({
           file: "PR_CONTEXT",
           comment: `No detailed review needed: ${analysis.reasoning}`,
           type: "improvement",
           confidence: 0.9
+        });
+      }
+
+      if (analysis.file_suggestions && Array.isArray(analysis.file_suggestions)) {
+        analysis.file_suggestions.forEach((suggestion: any) => {
+          const confidence = suggestion?.confidence ?? 0.9;
+          const fileTarget = typeof suggestion?.file_path === 'string' && suggestion.file_path.trim()
+            ? suggestion.file_path.trim()
+            : 'PR_CONTEXT';
+          const type = ['bug', 'improvement', 'security', 'style', 'test'].includes(String(suggestion?.type))
+            ? suggestion.type
+            : 'improvement';
+          const description = suggestion?.description ? String(suggestion.description) : 'File-level suggestion from context analysis.';
+
+          state.review_comments.push({
+            file: fileTarget,
+            comment: `FILE SUGGESTION: ${description}`,
+            type,
+            confidence,
+            suggestion: suggestion?.suggestion ? String(suggestion.suggestion) : undefined,
+            is_new_issue: true
+          });
         });
       }
 
@@ -894,6 +931,7 @@ Respond with JSON:
           lineContext:     changedLinesContext || '',
           expandedContext: expandedContext || '',
           externalContext: externalContextSection || '',
+          customRules:     this.currentCustomInstructions.reviewRules,
         })
       : this.buildDiffPrompt({
       roleIntroduction: `You are an expert code reviewer. Review the diff below and describe any issues in the modified lines of this pull request. Respond with valid JSON only.`,
@@ -903,6 +941,7 @@ Respond with JSON:
       changedLinesContext,
       expandedContext,
       externalContextSection,
+      customRules: this.currentCustomInstructions.reviewRules,
       instructionsSection: `REVIEW INSTRUCTIONS:
 1. Inspect only the lines that begin with "+" in the diff/context—those are the new or updated lines.
 2. Use the provided new file line numbers when setting each issue.line_number.
@@ -933,7 +972,7 @@ Respond with JSON:
   ],
   "file_suggestions": [
     {
-      "file_path": "docs/CHANGELOG.md",
+      "file_path": "path/to/relevant-file",
       "type": "improvement",
       "description": "File-level recommendation when no changed-line anchor is available",
       "suggestion": "Suggested action for that file",
@@ -1237,6 +1276,11 @@ Respond with JSON:
         parts.push(section);
         parts.push('');
       });
+    }
+
+    if (options.customRules) {
+      parts.push(`${options.customRules}`);
+      parts.push('');
     }
 
     parts.push(options.instructionsSection.trim());
@@ -1751,6 +1795,7 @@ Respond with JSON:
           lineContext:     changedLinesContext || '',
           expandedContext: expandedContext || '',
           externalContext: securityExternalContext || '',
+          customRules:     this.currentCustomInstructions.securityRules,
         })
       : this.buildDiffPrompt({
       roleIntroduction: `You are a security-focused code reviewer. Examine the diff below and report any vulnerabilities in the modified lines. Respond with valid JSON only.`,
@@ -1760,6 +1805,7 @@ Respond with JSON:
       changedLinesContext,
       expandedContext,
       externalContextSection: securityExternalContext,
+      customRules: this.currentCustomInstructions.securityRules,
       instructionsSection: `SECURITY REVIEW INSTRUCTIONS:
 1. Inspect only the lines that begin with "+"—those are the newly introduced or updated lines.
 2. Use the provided new file line numbers when setting each issue.line_number.
@@ -1903,11 +1949,14 @@ LANGUAGE AWARENESS:
         sourceBranch:    this.currentPRContext.sourceBranch,
         targetBranch:    this.currentPRContext.targetBranch,
         reviewComments:  commentsJson,
+        customRules:     this.currentCustomInstructions.suggestionsRules,
       });
     } else {
       suggestionsPrompt = `Based on the following review comments, generate specific code improvement suggestions:
 
 Review Comments: ${commentsJson}
+
+${this.currentCustomInstructions.suggestionsRules ?? ''}
 
 For each comment that has a suggestion, provide:
 1. The exact code change needed
@@ -1929,6 +1978,7 @@ Format as JSON:
     }
   ]
 }`;
+     
     }
 
     try {
@@ -1977,6 +2027,7 @@ Format as JSON:
         totalIssues:     String(state.review_comments.length),
         llmCallsUsed:    String(this.llmCalls),
         maxLlmCalls:     String(this.maxLLMCalls),
+        customRules:     this.currentCustomInstructions.finalizationRules,
       });
     } else {
       finalizationPrompt = `Based on all the review comments and analysis, provide a final summary and recommendation:
@@ -1984,6 +2035,8 @@ Format as JSON:
 Review Summary: ${reviewCommentsJson}
 Total Issues Found: ${state.review_comments.length}
 LLM Calls Used: ${this.llmCalls}/${this.maxLLMCalls}
+
+${this.currentCustomInstructions.finalizationRules ?? ''}
 
 Provide a final recommendation in JSON format:
 {

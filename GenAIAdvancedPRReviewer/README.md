@@ -135,6 +135,133 @@ variables:
 | `azure_openai_api_version` | string | ❌ | 2025-04-01-preview | Azure OpenAI API version (preview required for GPT‑5 deployments) |
 | `azure_openai_use_responses_api` | boolean | ❌ | false | Call the modern Responses API (required for GPT‑4.1 and GPT‑5 deployments) |
 | `mcp_servers` | multi-line string | ❌ | - | JSON array describing MCP servers that enrich each review with additional context |
+| `custom_instructions_path` | string | ❌ | `.pr-review` | Relative path from repo root to the folder containing custom `.md` prompt files |
+
+## 📝 Custom Prompts & Templates
+
+You can fully replace any of the LLM prompts and output templates by adding `.md` files inside a `.pr-review/` folder in your repository. Each file is version-controlled alongside your code and completely replaces the corresponding default.
+
+### Folder structure
+
+The `.pr-review/` folder is organised into three subfolders:
+
+```
+.pr-review/
+├── prompts/       # Full prompt replacement — completely overrides the built-in prompt
+│   ├── context-prompt.md
+│   ├── review-prompt.md
+│   ├── security-prompt.md
+│   ├── suggestions-prompt.md
+│   └── finalization-prompt.md
+├── rules/         # Partial injection — merged into the prompt without replacing it
+│   ├── context-rules.md
+│   ├── review-rules.md
+│   ├── security-rules.md
+│   ├── suggestions-rules.md
+│   └── finalization-rules.md
+└── templates/     # Output templates — control how results are formatted
+    └── summary-template.md
+```
+
+All files are optional and silently ignored if absent — the built-in default is always used as fallback.
+
+### prompts/ — full replacement
+
+Each file completely replaces the corresponding built-in prompt. Use this when you need full control over the structure, tone, and instructions sent to the model.
+
+| File | Stage | Description |
+|------|-------|-------------|
+| `context-prompt.md` | Context analysis | Decides if a detailed review is needed |
+| `review-prompt.md` | File review | Main code quality review — runs once per changed file |
+| `security-prompt.md` | Security scan | Vulnerability scan — runs once per changed file when enabled |
+| `suggestions-prompt.md` | Suggestions | Expands review comments into before/after code examples |
+| `finalization-prompt.md` | Final assessment | Produces the overall PR approval recommendation |
+
+The placeholder `{{custom_rules}}` is available in all prompt files and is resolved to the content of the matching `rules/` file (if present). If you omit the placeholder from your custom prompt, rules are appended automatically at the end.
+
+### rules/ — partial injection
+
+Each file injects additional instructions into the corresponding stage **without replacing the built-in prompt**. Use this when you only need to add project-specific business rules and don't want to maintain a full custom prompt.
+
+| File | Injected into |
+|------|--------------|
+| `context-rules.md` | Context analysis |
+| `review-rules.md` | File review |
+| `security-rules.md` | Security scan |
+| `suggestions-rules.md` | Suggestions |
+| `finalization-rules.md` | Final assessment |
+
+Rules are written in plain language — no JSON schema knowledge required. Example (`context-rules.md`):
+
+```markdown
+- CHANGELOG.md must be updated in every PR.
+- Every new feature must include unit tests.
+- Breaking changes must be documented in docs/breaking-changes.md.
+```
+
+Rules that require changes to a specific file are returned by the LLM as `file_suggestions` and posted as **file-level comments** directly on that file. The `file_path` is chosen dynamically — nothing is hardcoded.
+
+### templates/ — output formatting
+
+| File | Description |
+|------|-------------|
+| `summary-template.md` | Markdown layout of the PR summary comment posted to Azure DevOps |
+
+### Placeholder variables
+
+| Placeholder | Available in |
+|-------------|-------------|
+| `{{pr_title}}` | all files |
+| `{{pr_description}}` | all files |
+| `{{source_branch}}` | all files |
+| `{{target_branch}}` | all files |
+| `{{repository}}` | all files |
+| `{{pr_id}}` | all files |
+| `{{file_name}}` | `review-prompt.md`, `security-prompt.md` |
+| `{{changed_lines}}` | `review-prompt.md`, `security-prompt.md` |
+| `{{diff}}` | `review-prompt.md`, `security-prompt.md` |
+| `{{line_context}}` | `review-prompt.md`, `security-prompt.md` |
+| `{{expanded_context}}` | `review-prompt.md`, `security-prompt.md` |
+| `{{external_context}}` | `review-prompt.md`, `security-prompt.md`, `context-prompt.md` |
+| `{{custom_rules}}` | all `prompts/` files |
+| `{{changed_files}}` | `context-prompt.md` |
+| `{{review_comments}}` | `suggestions-prompt.md`, `finalization-prompt.md` |
+| `{{total_issues}}` | `finalization-prompt.md` |
+| `{{llm_calls_used}}` | `finalization-prompt.md` |
+| `{{max_llm_calls}}` | `finalization-prompt.md` |
+| `{{overall_assessment}}` | `summary-template.md` |
+| `{{status}}` | `summary-template.md` |
+| `{{total_files_reviewed}}` | `summary-template.md` |
+| `{{total_issues_found}}` | `summary-template.md` |
+| `{{critical_issues}}` | `summary-template.md` |
+| `{{security_issues}}` | `summary-template.md` |
+| `{{bug_issues}}` | `summary-template.md` |
+| `{{improvement_issues}}` | `summary-template.md` |
+| `{{style_issues}}` | `summary-template.md` |
+| `{{test_issues}}` | `summary-template.md` |
+| `{{summary}}` | `summary-template.md` |
+| `{{recommendations}}` | `summary-template.md` |
+
+### Quick start
+
+Copy the ready-to-use examples from `.pr-review-example/` into your repo and edit them:
+
+```bash
+cp -r .pr-review-example/ path/to/your-repo/.pr-review/
+```
+
+The example files contain the current defaults as a starting point and preserve the `prompts/` / `templates/` subfolder structure.
+
+### Using a custom folder path
+
+```yaml
+- task: GENAIADVANCEDPRREVIEWER@2
+  inputs:
+    azure_openai_endpoint: '$(azure_openai_endpoint)'
+    azure_openai_api_key: '$(azure_openai_api_key)'
+    azure_openai_deployment_name: 'gpt-4'
+    custom_instructions_path: 'team-config/pr-review'  # default: .pr-review
+```
 
 ## 🔌 MCP Server Integration
 
@@ -313,7 +440,6 @@ You can enable verbose debug logs (shows LLM prompts and response previews) by s
 ## 🔮 Future Enhancements
 
 ### Planned Features
-- **Custom Review Templates**: Team-specific review criteria
 - **Integration with SonarQube**: Combined static and AI analysis
 - **Multi-Language Support**: Enhanced support for various programming languages
 - **Review History**: Track review quality and improvement over time

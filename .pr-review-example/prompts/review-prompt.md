@@ -12,6 +12,8 @@ Unified diff ("-" = before, "+" = after):
 
 {{external_context}}
 
+{{custom_rules}}
+
 REVIEW INSTRUCTIONS:
 1. Inspect only the lines that begin with "+" in the diff/context—those are the new or updated lines.
 2. Use the provided new file line numbers when setting each issue.line_number.
@@ -44,7 +46,7 @@ Use the following JSON schema for your response:
   ],
   "file_suggestions": [
     {
-      "file_path": "docs/CHANGELOG.md",
+      "file_path": "path/to/relevant-file",
       "type": "improvement",
       "description": "File-level recommendation when no changed-line anchor is available",
       "suggestion": "Suggested action for that file",
