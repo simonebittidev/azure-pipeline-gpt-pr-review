@@ -440,11 +440,11 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 Looking for more AI-powered automation on your Azure DevOps PRs?
 
-### [SkillFlow PR](https://marketplace.visualstudio.com/items?itemName=SimoneBittiDev.skillflow-pr) — Custom LLM Skills for Azure DevOps Pipelines
+### [SkillFlow - Ai Pr Reviewer](https://marketplace.visualstudio.com/items?itemName=SimoneBittiDev.skillflow-pr) — Custom LLM Skills for Azure DevOps Pipelines
 
 > **SkillFlow** lets you define your own AI agents as simple Markdown files and run them on Pull Requests via an Azure DevOps pipeline task. Write a skill once, reuse it on every PR — from test generation and documentation to security scanning and changelog updates.
 
-[![SkillFlow PR on Azure DevOps Marketplace](https://img.shields.io/badge/Azure%20DevOps-SkillFlow%20PR-0078d7?logo=azure-devops)](https://marketplace.visualstudio.com/items?itemName=SimoneBittiDev.skillflow-pr)
+[SkillFlow Repo](https://github.com/simonebittidev/azure-devops-skillflow)
 
 ---
 
