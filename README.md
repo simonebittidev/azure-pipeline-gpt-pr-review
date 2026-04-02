@@ -436,4 +436,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+## 🌟 Also by the Same Author
+
+If you found this extension useful, you might also like:
+
+### [SkillFlow PR](https://marketplace.visualstudio.com/items?itemName=SimoneBittiDev.skillflow-pr) — AI-Powered PR Workflows for VS Code
+
+> Bring intelligent pull request workflows directly into your VS Code editor. SkillFlow PR helps you craft better PRs, write meaningful descriptions, and streamline your code review process — all from within the IDE.
+
+[![SkillFlow PR on VS Code Marketplace](https://img.shields.io/badge/VS%20Code-SkillFlow%20PR-blue?logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=SimoneBittiDev.skillflow-pr)
+
+---
+
 **Made with ❤️ for the Azure DevOps community**
