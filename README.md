@@ -436,9 +436,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 🌟 Also by the Same Author
+## 🌟 You Might Also Like
 
-If you found this extension useful, you might also like:
+If you're into AI-powered developer tools, check out this VS Code extension:
 
 ### [SkillFlow PR](https://marketplace.visualstudio.com/items?itemName=SimoneBittiDev.skillflow-pr) — AI-Powered PR Workflows for VS Code
 
