@@ -438,13 +438,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🌟 You Might Also Like
 
-If you're into AI-powered developer tools, check out this VS Code extension:
+Looking for more AI-powered automation on your Azure DevOps PRs?
 
-### [SkillFlow PR](https://marketplace.visualstudio.com/items?itemName=SimoneBittiDev.skillflow-pr) — AI-Powered PR Workflows for VS Code
+### [SkillFlow PR](https://marketplace.visualstudio.com/items?itemName=SimoneBittiDev.skillflow-pr) — Custom LLM Skills for Azure DevOps Pipelines
 
-> Bring intelligent pull request workflows directly into your VS Code editor. SkillFlow PR helps you craft better PRs, write meaningful descriptions, and streamline your code review process — all from within the IDE.
+> **SkillFlow** lets you define your own AI agents as simple Markdown files and run them on Pull Requests via an Azure DevOps pipeline task. Write a skill once, reuse it on every PR — from test generation and documentation to security scanning and changelog updates.
 
-[![SkillFlow PR on VS Code Marketplace](https://img.shields.io/badge/VS%20Code-SkillFlow%20PR-blue?logo=visual-studio-code)](https://marketplace.visualstudio.com/items?itemName=SimoneBittiDev.skillflow-pr)
+[![SkillFlow PR on Azure DevOps Marketplace](https://img.shields.io/badge/Azure%20DevOps-SkillFlow%20PR-0078d7?logo=azure-devops)](https://marketplace.visualstudio.com/items?itemName=SimoneBittiDev.skillflow-pr)
 
 ---
 
